@@ -1,0 +1,305 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>VEdit</title>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script type="text/javascript">
+
+jQuery.event.props.push('dataTransfer');
+jQuery(function ($) {
+
+    function toEditHtml(source) {
+        return source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ | $/g, '&nbsp;').replace(/\r?\n/g, '<br />');
+    };
+
+    function fromEditHtml(source) {
+        return source.
+            replace(/<br>(<\/br>)?/g, "\n").
+            replace(/<br *\/>/g, "\n").
+            replace(/&nbsp;/g, ' ').
+            replace(/&lt;/g, '<').
+            replace(/&gt;/g, '>').
+            replace(/&amp;/g, '&');
+    };
+
+    $('body').delegate('a.save-file-button', 'click', function () {
+        var downloadFileName = encodeURI($('#file-name').text());
+        var newContent = fromEditHtml($('#text-content').html());
+        this.setAttribute('download', downloadFileName); //HTML5.  OK for Chrome
+        this.setAttribute('href', 'data:application/octet-stream,' + encodeURIComponent(newContent));
+        return true;
+    });
+
+    $('html').
+    bind('drop', function (e) {
+        e.preventDefault();
+        if (!e.dataTransfer || !e.dataTransfer.files) {
+            alert('no drop file');
+            return;
+        }
+
+        var file = e.dataTransfer.files[0];
+        $('#file-name').text(file.name);
+
+        if (!window.FileReader) {
+            alert('no file read');
+            return;
+        }
+
+        var fr = new FileReader()
+        fr.onload = function (e) {
+            $("#text-content").html(toEditHtml(e.target.result));
+        };
+        fr.readAsText(file, "utf-8");
+    }).
+    bind('dragenter dragover', false);
+
+    $('body').delegate('.editable-content', 'keydown', function (e) {
+        if (!$('body').is('.vertical')) {
+            return;
+        }
+
+        var LEFT = 37, UP = 38, RIGHT = 39, DOWN = 40;
+        /*
+        var exec = function (fn) {
+        var editable = e.target;
+        var range = $(editable).caret();
+        e.preventDefault();
+        if (range.start === range.end) {
+        fn.apply(editable, [range]);
+        }
+        };
+        */
+
+
+        var whichOftextBreakOrEditable = function (node, textFn, breakFn, editableFn) {
+            if (node.nodeType === 3) { textFn(node); }
+            else if (/br/i.test(node.tagName)) { breakFn(node); }
+            else { editableFn(node); }
+        };
+
+        var nextLineNode = function (node, offset) {
+            //find nextSibling of next <br />
+            console.log('NLN');
+            do {
+                console.log(node, offset);
+                whichOftextBreakOrEditable(
+                    node,
+                    function () { node = node.nextSibling; },
+                    function () { node = node.nextSibling; },
+                    function () {
+                        if (node.childNodes.length !== offset) {
+                            node = node.nextSibling;
+                            offset = 0;
+                        } else {
+                            offset = offset + 1;
+                        }
+                    }
+                );
+            } while (node !== null && !/br/i.test(node.nodeName));
+            return node !== null ? node.nextSibling : null;
+        };
+        var getEditableSelection = function () {
+            /*assume read-write-plaintext-only has one text-node for each line between BR tag 
+            * as: "line1" <br /> "line2" <br /><br /> "line 4" ...
+            * => ansectorNode candidates is either textNode or whole editableNode itself.
+            */
+            var obj = {};
+            //TODO: test commonAncestor is under container
+            var sel = window.document.getSelection();
+            obj.collapsed = false;
+            obj.collapseToStart = function () { sel.collapseToStart(); };
+            obj.collapseToEnd = function () { sel.collapseToEnd(); };
+            if (sel.rangeCount === 1) {
+                var range = sel.getRangeAt(0);
+                if (range.collapsed) {
+                    obj.collapsed = true;
+                    var start = range.startOffset;
+                    var end = range.endOffset;
+
+                    var setCaret = function (container, offset) {
+                        range.setStart(container, offset);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        sel.collapseToStart();
+                    };
+
+                    obj.moveLogicalDown = function () {
+                        var next = nextLineNode(range.endContainer, end);
+                        console.log(next);
+                        if (next !== null) {
+                            //text or br
+                            if (next.nodeType === 3) {
+                                setCaret(next, Math.min(end, next.nodeValue.length));
+                            } else {
+                                setCaret(next, 0);
+                            }
+                        }
+                    };
+
+                    obj.moveLogicalLeft = function () {
+                        if (start === 0) {
+                            var prevNode = range.startContainer.previousSibling;
+                            if (prevNode === null) {
+                                //do nothing because here is may be head.
+                                return;
+                            } else {
+                                whichOftextBreakOrEditable(
+                                    prevNode,
+                                    function () {
+                                        setCaret(prevNode, prevNode.nodeValue.length);
+                                    },
+                                    function () {
+                                        setCaret(prevNode, 0);
+                                    },
+                                    function () {
+                                        //do nothing because here is may be out.
+                                        return;
+                                    }
+                                );
+                            }
+                        } else {
+                            setCaret(range.startContainer, start - 1);
+                        }
+                    };
+
+                    obj.moveLogicalRight = function () {
+                        var currentNode = range.endContainer;
+
+                        //console.log('current', currentNode);
+                        var moveToNext = function () {
+                            var nextNode = currentNode.nextSibling;
+                            var moveToNextOfNext = function () {
+                                var nextOfNextNode = nextNode.nextSibling;
+                                if (nextOfNextNode !== null) {
+                                    setCaret(nextOfNextNode, 0);
+                                }
+                            };
+                            //console.log('next', nextNode);
+                            if (nextNode === null) {
+                                //do nothing because here is may be tail.
+                            } else {
+                                whichOftextBreakOrEditable(
+                                    nextNode,
+                                    moveToNextOfNext,
+                                    moveToNextOfNext,
+                                    function () {
+                                        throw 'UNEXPECTED PATTERN: Editable has come!';
+                                    }
+                                );
+                            }
+                        };
+
+                        whichOftextBreakOrEditable(
+                            currentNode,
+                            function () {
+                                //moveToNextCharacter
+                                if (end < currentNode.nodeValue.length) {
+                                    setCaret(currentNode, end + 1);
+                                } else {
+                                    moveToNext();
+                                }
+                            },
+                            moveToNext,
+                            function () {
+                                //moveToNextChild
+                                setCaret(currentNode, end + 1);
+                            }
+                       );
+                    };
+                }
+            };
+            return obj;
+        };
+
+        switch (e.keyCode) {
+        /*
+            case LEFT:
+                //down
+                e.preventDefault();
+                var sel = getEditableSelection();
+                if (sel.collapsed) {
+                    sel.moveLogicalDown();
+                } else {
+                    sel.collapseToEnd();
+                }
+                break;
+            case RIGHT:
+                //up
+                break;
+                */
+            case UP:
+                //left
+                e.preventDefault();
+                var sel = getEditableSelection();
+                if (sel.collapsed) {
+                    sel.moveLogicalLeft();
+                } else {
+                    sel.collapseToStart();
+                }
+                break;
+            case DOWN:
+                //right
+                e.preventDefault();
+                var sel = getEditableSelection();
+                if (sel.collapsed) {
+                    sel.moveLogicalRight();
+                } else {
+                    sel.collapseToEnd();
+                }
+                break;
+        }
+    });
+});
+
+</script>
+<style type="text/css">
+
+body
+{
+    background-color: #000000;
+    color: #FFFFFF;
+}
+
+body.vertical
+{
+    writing-mode: tb-rl;/*IE*/
+    -webkit-writing-mode: vertical-rl;
+    font-family: "@小塚ゴシック Pr6N M", "@IPAゴシック", "@メイリオ", "@ＭＳ ゴシック", Serif;
+}
+
+.vertical .horizontal
+{
+    display: inline-block;
+    -webkit-writing-mode: horizontal-tb;
+}
+
+.editable-content
+{
+    -webkit-user-modify: read-write-plaintext-only;
+    -moz-user-modify: read-write-plaintext-only;
+    -webkit-user-drag: none;
+    -moz-user-drag: none;
+    white-space: pre-wrap;
+    word-break: break-strict;
+    word-wrap: break-word;
+}
+
+.editable-content.changed
+{
+    background-color: Red;
+}
+
+</style>
+</head>
+<body class="vertical">
+    <div style="position:relative" class="horizontal">
+        <div style="position:fixed;right:8px;top:4px;height:20px" >
+            <a class="save-file-button" style="display:inline" href="#" >
+                <span id="file-name"></span>
+            </a>
+        </div>
+    </div>
+    <div id="text-content" class="editable-content" style="background-color:#FFFFFF;color:#000000;margin-top:30px;border-top:1px inset #FFFFFF"></div>
+</body>
+</html>

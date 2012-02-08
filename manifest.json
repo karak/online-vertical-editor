@@ -1,0 +1,16 @@
+﻿{
+  "name": "My First Extension",
+  "version": "1.0",
+  "description": "The first extension that I made.",
+  "app": {
+    "launch": {
+      "local_path": "main.html"
+    }
+  },
+  "permissions": [
+    "https://docs.google.com/feeds/*",
+    "https://www.google.com/accounts/OAuthGetRequestToken",
+    "https://www.google.com/accounts/OAuthAuthorizeToken",
+    "https://www.google.com/accounts/OAuthGetAccessToken"
+  ]
+}
