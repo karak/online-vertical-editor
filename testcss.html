@@ -1,0 +1,139 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="ja" xml:lang="ja">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Title</title>
+    <style type="text/css">
+    html
+    {
+        -webkit-writing-mode: vertical-rl;
+    }
+
+    div.main-content
+    {
+        font-size: 14pt;
+        font-family: "@小塚明朝 Pr6N R", "@IPA明朝", "@ＭＳ 明朝", Sans-Serif;
+    }
+    
+    /* ruby */
+    div.main-content ruby
+    {
+        line-stacking-ruby: exclude-ruby;
+    }
+    div.main-content ruby>rt
+    {
+        font-size: 7pt;
+        font-family: "@小塚ゴシック朝 Pr6N M", "@IPAゴシック", "@ＭＳ ゴシック朝", Serif;
+    }
+    
+    /* heading */
+    section>h1.heading,
+    section:before
+    {
+        font-family: "@小塚ゴシック朝 Pr6N M", "@IPAゴシック", "@ＭＳ ゴシック朝", Serif;
+        font-size: inherit;
+        font-weight: normal;
+        -webkit-margin-start: 3em;
+    }
+    section.chapter
+    {
+        counter-reset: subchapter;
+    }
+    section.subchapter
+    {
+        counter-increment: subchapter;
+    }
+    section.subchapter:before
+    {
+        content: counter(subchapter);
+        -webkit-margin-before: 5em;
+        -webkit-margin-after: 0px;
+        -webkit-margin-start: 2em;
+        -webkit-margin-end: 2em;
+        -webkit-writing-mode: horizontal-tb;
+        line-height: 1em;
+        display: inline-block;
+        text-align: center;
+        vertical-align: middle;
+        -webkit-user-select: none;
+    }
+
+    /* titlepage */
+    section.titlepage
+    {
+        display: inline-block;
+        -webkit-margin-start: 5em;
+        font-size: 18pt;
+        text-align: center;
+        -webkit-margin-after: 2.0em;
+    }
+    section.titlepage>h1.title
+    {
+        font-weight: bold;
+        -webkit-margin-before: 0.25em;
+        -webkit-margin-after: 0.25em;
+    }
+    section.titlepage>p
+    {
+        -webkit-margin-before: 0.5em;
+        -webkit-margin-after: 0.5em;
+    }
+
+    /* paragraph */
+    p.paragraph-normal,
+    p.paragraph-serif
+    {
+        -webkit-margin-before: 0px;
+        -webkit-margin-start: 0px;
+        -webkit-margin-end: 0px;
+        -webkit-margin-after: 0px;
+        letter-spacing: 0.1em;
+        white-space: normal;
+        
+        position: relative; /* offset base */
+    }
+    
+    p.paragraph-normal
+    {
+        text-indent: 1.1em;
+    }
+    p.paragraph-normal span.initial-space
+    {
+        /* never display:none nor visibility:hidden for selection */
+        position:absolute;
+        right: 0px;
+        top: 0px;
+    }
+    p.paragraph-serif
+    {
+        text-indent: -1.1em;
+        -webkit-margin-start: 1.1em;
+    }
+    
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <section epub:type="titlepage" class="titlepage">
+            <h1 epub:type="title" class="title">吾輩は猫である</h1>
+            <p>夏目漱石</p>
+        </section>
+        
+        <div class="pagebreak" epub:type="pagebreak"></div>
+
+        <section epub:type="chapter" class="chapter">
+            <h1 class="heading">見出し</h1>
+            <section pub:type="subchapter" class="subchapter">
+                <p class="paragraph-normal"><span class="initial-space">　</span><ruby><rb>吾輩</rb><rp>《</rp><rt>わがはい</rt><rp>》</rp></ruby>は猫である。名前はまだ無い。</p>
+                <p class="paragraph-normal"><span class="initial-space">　</span>どこで生れたかとんと<ruby><rb>見当</rb><rp>《</rp><rt>けんとう</rt><rp>》</rp></ruby>がつかぬ。何でも薄暗いじめじめした所でニャーニャー泣いていた事だけは記憶している。吾輩はここで始めて人間というものを見た。しかもあとで聞くとそれは書生という人間中で一番｜獰悪《どうあく》な種族であったそうだ。この書生というのは時々我々を捕《つかま》えて煮《に》て食うという話である。しかしその当時は何という考もなかったから別段恐しいとも思わなかった。ただ彼の掌《てのひら》に載せられてスーと持ち上げられた時何だかフワフワした感じがあったばかりである。掌の上で少し落ちついて書生の顔を見たのがいわゆる人間というものの見始《みはじめ》であろう。この時妙なものだと思った感じが今でも残っている。第一毛をもって装飾されべきはずの顔がつるつるしてまるで薬缶《やかん》だ。その後《ご》猫にもだいぶ逢《あ》ったがこんな片輪《かたわ》には一度も出会《でく》わした事がない。のみならず顔の真中があまりに突起している。そうしてその穴の中から時々ぷうぷうと煙《けむり》を吹く。どうも咽《む》せぽくて実に弱った。これが人間の飲む煙草《たばこ》というものである事はようやくこの頃知った。</p>
+                <p class="paragraph-normal"><span class="initial-space">　</span>この書生の掌の裏《うち》でしばらくはよい心持に坐っておったが、しばらくすると非常な速力で運転し始めた。書生が動くのか自分だけが動くのか分らないが無暗《むやみ》に眼が廻る。胸が悪くなる。到底《とうてい》助からないと思っていると、どさりと音がして眼から火が出た。それまでは記憶しているがあとは何の事やらいくら考え出そうとしても分らない。</p>
+                <p class="paragraph-serif">「この書生の掌の裏《うち》でしばらくはよい心持に坐っておったが、しばらくすると非常な速力で運転し始めた。書生が動くのか自分だけが動くのか分らないが無暗《むやみ》に眼が廻る。胸が悪くなる。到底《とうてい》助からないと思っていると、どさりと音がして眼から火が出た。それまでは記憶しているがあとは何の事やらいくら考え出そうとしても分らない」</p>
+            </section>
+            <section pub:type="subchapter" class="subchapter">
+                <p class="paragraph-normal">ＡＡＡ</p>
+            </section>
+        </section>
+    </div>
+</body>
+</html>
