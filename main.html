@@ -9,13 +9,14 @@ jQuery.event.props.push('dataTransfer');
 jQuery(function ($) {
 
     function toEditHtml(source) {
-        return source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ | $/g, '&nbsp;').replace(/\r?\n/g, '<br />');
+        //normalize new-line to LF only for counting!
+        return source.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^ | $/g, '&nbsp;').replace(/\\r\\n/g, "\n");
     };
 
     function fromEditHtml(source) {
         return source.
-            replace(/<br>(<\/br>)?/g, "\n").
-            replace(/<br *\/>/g, "\n").
+            replace(/<br>(<\/br>)?/g, "\r\n").
+            replace(/<br *\/>/g, "\r\n").
             replace(/&nbsp;/g, ' ').
             replace(/&lt;/g, '<').
             replace(/&gt;/g, '>').
@@ -60,17 +61,6 @@ jQuery(function ($) {
         }
 
         var LEFT = 37, UP = 38, RIGHT = 39, DOWN = 40;
-        /*
-        var exec = function (fn) {
-        var editable = e.target;
-        var range = $(editable).caret();
-        e.preventDefault();
-        if (range.start === range.end) {
-        fn.apply(editable, [range]);
-        }
-        };
-        */
-
 
         var whichOftextBreakOrEditable = function (node, textFn, breakFn, editableFn) {
             if (node.nodeType === 3) { textFn(node); }
@@ -78,134 +68,101 @@ jQuery(function ($) {
             else { editableFn(node); }
         };
 
-        var nextLineNode = function (node, offset) {
-            //find nextSibling of next <br />
-            console.log('NLN');
-            do {
-                console.log(node, offset);
-                whichOftextBreakOrEditable(
-                    node,
-                    function () { node = node.nextSibling; },
-                    function () { node = node.nextSibling; },
-                    function () {
-                        if (node.childNodes.length !== offset) {
-                            node = node.nextSibling;
-                            offset = 0;
-                        } else {
-                            offset = offset + 1;
-                        }
-                    }
-                );
-            } while (node !== null && !/br/i.test(node.nodeName));
-            return node !== null ? node.nextSibling : null;
-        };
         var getEditableSelection = function () {
-            /*assume read-write-plaintext-only has one text-node for each line between BR tag 
-            * as: "line1" <br /> "line2" <br /><br /> "line 4" ...
-            * => ansectorNode candidates is either textNode or whole editableNode itself.
-            */
+            /*assume read-write-plaintext-only is consist of only one text-node */
             var obj = {};
-            //TODO: test commonAncestor is under container
+            //TODO: test commonAncestor is editable element 
             var sel = window.document.getSelection();
             obj.collapsed = false;
             obj.collapseToStart = function () { sel.collapseToStart(); };
             obj.collapseToEnd = function () { sel.collapseToEnd(); };
             if (sel.rangeCount === 1) {
                 var range = sel.getRangeAt(0);
+
                 if (range.collapsed) {
                     obj.collapsed = true;
                     var start = range.startOffset;
                     var end = range.endOffset;
 
                     var setCaret = function (container, offset) {
-                        range.setStart(container, offset);
+                        var newRange = range.cloneRange();
+                        newRange.setStart(container, offset);
+                        newRange.setEnd(container, offset);
                         sel.removeAllRanges();
-                        sel.addRange(range);
-                        sel.collapseToStart();
+                        sel.addRange(newRange);
                     };
 
                     obj.moveLogicalDown = function () {
-                        var next = nextLineNode(range.endContainer, end);
-                        console.log(next);
-                        if (next !== null) {
-                            //text or br
-                            if (next.nodeType === 3) {
-                                setCaret(next, Math.min(end, next.nodeValue.length));
-                            } else {
-                                setCaret(next, 0);
+                        //NOTE: line incremental is left-forward; negative-X.
+                        var MARGIN = 5;
+                        var newRange = range.cloneRange();
+                        var goForward = function () {
+                          if (newRange.endOffset < newRange.endContainer.nodeValue.length) {
+                            newRange.setEnd(newRange.endContainer, newRange.endOffset + 1);
+                            return true;
+                          } else {
+                            return false;
+                          }
+                        };
+                        var currentLineRight = undefined, originalY = undefined;
+                        var relativeLine = 0;
+                        while (goForward()) {
+                            var rects = newRange.getClientRects();
+                            if (rects.length === 0) {
+                                continue;
+                            }
+                            var firstRect = rects[0];
+                            var lastRect = rects[rects.length - 1];
+                            if (currentLineRight === undefined) {
+                              currentLineRight = firstRect.right;
+                            }
+                            if (originalY === undefined) {
+                              originalY = firstRect.top;
+                            }
+                            
+                            if (lastRect.right + MARGIN < currentLineRight) {
+                              relativeLine += 1;
+                              currentLineRight = lastRect.right;
+                            }
+
+                            if (relativeLine === 1 && lastRect.bottom >= originalY) {
+                                newRange.setStart(newRange.endContainer, newRange.endOffset);
+                                newRange = (function () {
+                                    // more -1 offset when line-head because it has no rect there.
+                                    var beforeRange = newRange.cloneRange();
+                                    beforeRange.setStart(newRange.endContainer, newRange.endOffset - 1);
+                                    var rect = beforeRange.getClientRects()[0];
+                                    if (rect.top >= originalY) {
+                                        return beforeRange;
+                                    } else {
+                                        return newRange;
+                                    }
+                                } ()); 
+                                newRange.collapse(true);
+                                sel.removeAllRanges();
+                                sel.addRange(newRange);
+                                break;
+                            } else if (relativeLine > 1) {
+                                //backward
+                                newRange.setStart(newRange.endContainer, newRange.endOffset - 2);
+                                newRange.collapse(true);
+                                sel.removeAllRanges();
+                                sel.addRange(newRange);
+                                break;
                             }
                         }
                     };
 
                     obj.moveLogicalLeft = function () {
-                        if (start === 0) {
-                            var prevNode = range.startContainer.previousSibling;
-                            if (prevNode === null) {
-                                //do nothing because here is may be head.
-                                return;
-                            } else {
-                                whichOftextBreakOrEditable(
-                                    prevNode,
-                                    function () {
-                                        setCaret(prevNode, prevNode.nodeValue.length);
-                                    },
-                                    function () {
-                                        setCaret(prevNode, 0);
-                                    },
-                                    function () {
-                                        //do nothing because here is may be out.
-                                        return;
-                                    }
-                                );
-                            }
-                        } else {
-                            setCaret(range.startContainer, start - 1);
-                        }
+                      if (start > 0) {
+                          setCaret(range.startContainer, start - 1);
+                      }
                     };
 
                     obj.moveLogicalRight = function () {
-                        var currentNode = range.endContainer;
-
-                        //console.log('current', currentNode);
-                        var moveToNext = function () {
-                            var nextNode = currentNode.nextSibling;
-                            var moveToNextOfNext = function () {
-                                var nextOfNextNode = nextNode.nextSibling;
-                                if (nextOfNextNode !== null) {
-                                    setCaret(nextOfNextNode, 0);
-                                }
-                            };
-                            //console.log('next', nextNode);
-                            if (nextNode === null) {
-                                //do nothing because here is may be tail.
-                            } else {
-                                whichOftextBreakOrEditable(
-                                    nextNode,
-                                    moveToNextOfNext,
-                                    moveToNextOfNext,
-                                    function () {
-                                        throw 'UNEXPECTED PATTERN: Editable has come!';
-                                    }
-                                );
-                            }
-                        };
-
-                        whichOftextBreakOrEditable(
-                            currentNode,
-                            function () {
-                                //moveToNextCharacter
-                                if (end < currentNode.nodeValue.length) {
-                                    setCaret(currentNode, end + 1);
-                                } else {
-                                    moveToNext();
-                                }
-                            },
-                            moveToNext,
-                            function () {
-                                //moveToNextChild
-                                setCaret(currentNode, end + 1);
-                            }
-                       );
+                      if (end < range.endContainer.nodeValue.length) {
+                          setCaret(range.endContainer, end + 1);
+                      }
                     };
                 }
             };
@@ -213,7 +170,6 @@ jQuery(function ($) {
         };
 
         switch (e.keyCode) {
-        /*
             case LEFT:
                 //down
                 e.preventDefault();
@@ -227,7 +183,6 @@ jQuery(function ($) {
             case RIGHT:
                 //up
                 break;
-                */
             case UP:
                 //left
                 e.preventDefault();
@@ -288,6 +243,14 @@ body.vertical
 .editable-content.changed
 {
     background-color: Red;
+}
+
+.editable-content br:after
+{
+  display: inline;
+  content: 'L';
+  background-color: RED;
+  color: blue;
 }
 
 </style>
