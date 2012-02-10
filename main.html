@@ -2,6 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>VEdit</title>
+<script type="text/javascript" src="aozora.js"></script>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 <script type="text/javascript">
 
@@ -25,11 +26,28 @@ jQuery(function ($) {
 
     $('body').delegate('a.save-file-button', 'click', function () {
         var downloadFileName = encodeURI($('#file-name').text());
-        var newContent = fromEditHtml($('#text-content').html());
+        var newContent = fromEditHtml($('#text-content>div.edit').html());
         this.setAttribute('download', downloadFileName); //HTML5.  OK for Chrome
         this.setAttribute('href', 'data:application/octet-stream,' + encodeURIComponent(newContent));
         return true;
+    }).
+    delegate('input.preview-button', 'change', function () {
+        if ($(this).is(':checked')) {
+            var text = fromEditHtml($('#text-content>div.edit').html());
+            var html;
+            try {
+                html = aozoraToHtml(text);
+                $('#text-content>div.preview').html(html);
+            } catch (e) {
+                $('#text-content>div.preview').text(text);
+            }
+            $('#text-content').addClass('preview-mode');
+        } else {
+            $('#text-content').removeClass('preview-mode');
+        }
     });
+
+    var CHAR_CODE = 'cp932';
 
     $('html').
     bind('drop', function (e) {
@@ -49,9 +67,13 @@ jQuery(function ($) {
 
         var fr = new FileReader()
         fr.onload = function (e) {
-            $("#text-content").html(toEditHtml(e.target.result));
+            $("#text-content>div.preview").empty();
+            $('#text-content').removeClass('preview-mode').
+                children('div.edit:first-child').html(toEditHtml(e.target.result)).focus().
+                end().
+            removeClass('unloaded');
         };
-        fr.readAsText(file, "utf-8");
+        fr.readAsText(file, CHAR_CODE);
     }).
     bind('dragenter dragover', false);
 
@@ -97,12 +119,12 @@ jQuery(function ($) {
                         var MARGIN = 5;
                         var newRange = range.cloneRange();
                         var goForward = function () {
-                          if (newRange.endOffset < newRange.endContainer.nodeValue.length) {
-                            newRange.setEnd(newRange.endContainer, newRange.endOffset + 1);
-                            return true;
-                          } else {
-                            return false;
-                          }
+                            if (newRange.endOffset < newRange.endContainer.nodeValue.length) {
+                                newRange.setEnd(newRange.endContainer, newRange.endOffset + 1);
+                                return true;
+                            } else {
+                                return false;
+                            }
                         };
                         var currentLineRight = undefined, originalY = undefined;
                         var relativeLine = 0;
@@ -114,15 +136,15 @@ jQuery(function ($) {
                             var firstRect = rects[0];
                             var lastRect = rects[rects.length - 1];
                             if (currentLineRight === undefined) {
-                              currentLineRight = firstRect.right;
+                                currentLineRight = firstRect.right;
                             }
                             if (originalY === undefined) {
-                              originalY = firstRect.top;
+                                originalY = firstRect.top;
                             }
-                            
+
                             if (lastRect.right + MARGIN < currentLineRight) {
-                              relativeLine += 1;
-                              currentLineRight = lastRect.right;
+                                relativeLine += 1;
+                                currentLineRight = lastRect.right;
                             }
 
                             if (relativeLine === 1 && lastRect.bottom >= originalY) {
@@ -137,7 +159,7 @@ jQuery(function ($) {
                                     } else {
                                         return newRange;
                                     }
-                                } ()); 
+                                } ());
                                 newRange.collapse(true);
                                 sel.removeAllRanges();
                                 sel.addRange(newRange);
@@ -154,15 +176,15 @@ jQuery(function ($) {
                     };
 
                     obj.moveLogicalLeft = function () {
-                      if (start > 0) {
-                          setCaret(range.startContainer, start - 1);
-                      }
+                        if (start > 0) {
+                            setCaret(range.startContainer, start - 1);
+                        }
                     };
 
                     obj.moveLogicalRight = function () {
-                      if (end < range.endContainer.nodeValue.length) {
-                          setCaret(range.endContainer, end + 1);
-                      }
+                        if (end < range.endContainer.nodeValue.length) {
+                            setCaret(range.endContainer, end + 1);
+                        }
                     };
                 }
             };
@@ -227,6 +249,7 @@ body.vertical
 {
     display: inline-block;
     -webkit-writing-mode: horizontal-tb;
+    font-family: "小塚ゴシック Pr6N M", "IPAゴシック", "メイリオ", "ＭＳ ゴシック", Serif;
 }
 
 .editable-content
@@ -236,33 +259,75 @@ body.vertical
     -webkit-user-drag: none;
     -moz-user-drag: none;
     white-space: pre-wrap;
+    /*
     word-break: break-strict;
     word-wrap: break-word;
+    */
 }
 
-.editable-content.changed
+.editable-content:focus
 {
-    background-color: Red;
+    outline: none; /* disable webkit default */
 }
 
-.editable-content br:after
+div.pad
 {
-  display: inline;
-  content: 'L';
-  background-color: RED;
-  color: blue;
+    display:inline-block;
+    background-color:#DBDBFF;
+    padding:32px 4px 4px 4px;
+    border-radius:8px 8px 2px 2px;
+}
+
+div.content-container
+{
+    display:inline-block;
+    position:relative;
+    border:1px inset #B6B6C0;
+    padding: 2px;
+    border-radius: 2px;
+    -webkit-logical-width: 40em;
+}
+div.content-container.unloaded
+{
+    display:none;
+}
+div.content-container>div.edit
+{
+    display:block;
+}
+div.content-container>div.preview
+{
+    display:none;
+}
+div.content-container.preview-mode>div.edit
+{
+    display:none;
+}
+div.content-container.preview-mode>div.preview
+{
+    display:block;
 }
 
 </style>
 </head>
 <body class="vertical">
-    <div style="position:relative" class="horizontal">
-        <div style="position:fixed;right:8px;top:4px;height:20px" >
-            <a class="save-file-button" style="display:inline" href="#" >
-                <span id="file-name"></span>
-            </a>
+    <div class="pad">
+        <div style="position:relative" class="horizontal">
+            <div style="position:fixed;right:24px;top:12px;height:20px" >
+                <span style="display:inline-block;width:20px"></span>
+                <a class="save-file-button" style="display:inline" href="#">
+                    <span id="file-name"></span>
+                </a>
+            </div>
+            <div style="position:fixed;left:20px;top:12px;" >
+                <input type="checkbox" id="preview-button" class="preview-button" href="#"></input>
+                <label for="preview-button">Preview</label>
+            </div>
+        </div>
+        <div id="text-content" class="content-container unloaded" style="background-color:#FFFFFF;color:#000000;">
+            <div class="edit editable-content" ></div>
+            <div class="preview"></div>
         </div>
     </div>
-    <div id="text-content" class="editable-content" style="background-color:#FFFFFF;color:#000000;margin-top:30px;border-top:1px inset #FFFFFF"></div>
 </body>
 </html>
