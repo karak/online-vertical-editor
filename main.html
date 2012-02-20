@@ -11,6 +11,19 @@
 <script type="text/javascript" src="dropbox-storage.js"></script>
 <script type="text/javascript">
 
+/* utility */
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    var fs = new DropboxStorage();
+
+    function chopFileName(path) {
+        /([^\/]+)\..+/.exec(path);
+        return RegExp.$1 || path;
+    }
+
+
 var editor = {};
 
 (function ($) {
@@ -32,29 +45,79 @@ var editor = {};
 
     /* editor */
     /* - load from somewhere */
-    editor.load = function (readFn) {
-        readFn(function (file) {
-            document.title = file.name + " - VEdit";
-            $('#file-name').text(file.path);
+    var storage = null;
 
+    editor.bind = function (newStorage) {
+        storage = newStorage;
+        //start from root
+        storage.readDirectory(
+            '/',
+            function (paths) {
+                buffer = [];
+                buffer.push('<ul>');
+                $.each(paths, function () {
+                    var path, name, href, listContent;
+                    path = escapeHtml(this);
+                    name = chopFileName(path);
+                    href = router.linkUrl(path);
+                    listContent = '<a href="' + href + '">' + name + '</a>';
+                    buffer.push('<li>' + listContent + '</li>');
+                });
+                buffer.push('</ul>');
+                $('#explorer').html(buffer.join(''));
+            }
+        );
+    };
+
+    var currentPath = function () {
+        return $('#file-name').text();
+    };
+
+    var newContent = function () {
+        return fromEditHtml($('#text-content>div.edit').html());
+    };
+
+    var oldContent = undefined;
+
+    editor.load = function (path) {
+        fs.readFile(path, function (content) {
+            var name = chopFileName(path);
+            oldContent = content;
+
+            document.title = name + " - VEdit";
+
+            $('#file-name').text(path);
             $("#text-content>div.preview").empty();
             $('#text-content').removeClass('preview-mode').
-                children('div.edit:first-child').html(toEditHtml(file.content)).focus().
+                children('div.edit:first-child').html(toEditHtml(content)).focus().
                 end().
             removeClass('unloaded');
         });
     };
 
+    editor.changed = function () {
+        return newContent() !== oldContent;
+    };
+
+    editor.save = function () {
+        if (!editor.changed()) return;
+
+        fs.updateFile(currentPath(), newContent());
+    };
 
 jQuery(function ($) {
 
 
     /* - download */
-    $('body').delegate('a.save-file-button', 'click', function () {
+    $('body').delegate('a.download-file-button', 'click', function () {
         var newContent = fromEditHtml($('#text-content>div.edit').html());
         this.setAttribute('download', $('#file-name').text()); //HTML5.  OK for Chrome
         this.setAttribute('href', 'data:application/octet-stream,' + encodeURIComponent(newContent));
         return true;
+    }).
+    delegate('button.save-file-button', 'click', function () {
+        editor.save();
+        return false;
     }).
     delegate('input.preview-button', 'change', function () {
         if ($(this).is(':checked')) {
@@ -316,7 +379,8 @@ div.content-container.preview-mode>div.preview
         <div style="position:relative" class="horizontal">
             <div style="position:fixed;right:24px;top:12px;height:20px" >
                 <span style="display:inline-block;width:20px"></span>
-                <a class="save-file-button" style="display:inline" href="#">
+                <button class="save-file-button" style="display:inline" >Save</button>
+                <a class="download-file-button" style="display:inline" href="#">
                     <span id="file-name"></span>
                 </a>
             </div>
@@ -336,33 +400,13 @@ div.content-container.preview-mode>div.preview
     </div>
 
 <script type ="text/javascript">
-    
-    function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    }
-
-    var fs = new DropboxStorage();
-
-    function chopFileName(path) {
-        /([^\/]+)\..+/.exec(path);
-        return RegExp.$1 || path;
-    }
-
 
     var router = (new function (editor) {
 
         var route = function (url) {
             if (/#!\/file(.+)/.test(url)) {
                 var path = RegExp.$1;
-                editor.load(function (callback) {
-                    fs.readFile(path, function (data) {
-                        callback({
-                            path: path,
-                            name: chopFileName(path),
-                            content: data
-                        });
-                    });
-                });
+                editor.load(path);
             } else if (/#!\/$/.exec(url)) {
             }
         };
@@ -385,25 +429,8 @@ div.content-container.preview-mode>div.preview
     fs.connect(function () {
 
         router.setup();
+        editor.bind(fs);
 
-        //start from root
-        fs.readDirectory(
-            '/',
-            function (paths) {
-                buffer = [];
-                buffer.push('<ul>');
-                $.each(paths, function () {
-                    var path, name, href, listContent;
-                    path = escapeHtml(this);
-                    name = chopFileName(path);
-                    href = router.linkUrl(path);
-                    listContent = '<a href="' + href + '">' + name + '</a>';
-                    buffer.push('<li>' + listContent + '</li>');
-                });
-                buffer.push('</ul>');
-                $('#explorer').html(buffer.join(''));
-            }
-        );
     });
 </script>
 </body>

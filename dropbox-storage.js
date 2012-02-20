@@ -28,4 +28,11 @@
             fn(content);
         });
     };
+
+    this.updateFile = function (path, content) {
+        var onsuccess = function () {
+            console.log('PUT COMPLETED');
+        };
+        dropbox.putFileContents(path, content, onsuccess);
+    };
 }
