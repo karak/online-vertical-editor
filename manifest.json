@@ -5,12 +5,18 @@
   "app": {
     "launch": {
       "local_path": "main.html"
-    }
+	}
   },
+  "content_scripts": [
+    {
+      "matches": ["https://www.dropbox.com/1/oauth/authorize*"],
+      "js": ["dropbox-authorize.js"]
+    }
+  ],
   "permissions": [
-    "https://docs.google.com/feeds/*",
-    "https://www.google.com/accounts/OAuthGetRequestToken",
-    "https://www.google.com/accounts/OAuthAuthorizeToken",
-    "https://www.google.com/accounts/OAuthGetAccessToken"
+    "tabs",
+    "https://www.dropbox.com/",
+    "https://api.dropbox.com/",
+    "https://api-content.dropbox.com/"
   ]
 }

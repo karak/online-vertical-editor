@@ -4,10 +4,16 @@
 <title>VEdit</title>
 <script type="text/javascript" src="aozora.js"></script>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script type="text/javascript" src="sha1.js"></script>
+<script type="text/javascript" src="oauth.js"></script>
+<script type="text/javascript" src="oauth-request.js"></script>
+<script type="text/javascript" src="dropbox.js"></script>
+<script type="text/javascript" src="dropbox-storage.js"></script>
 <script type="text/javascript">
 
-jQuery.event.props.push('dataTransfer');
-jQuery(function ($) {
+var editor = {};
+
+(function ($) {
 
     function toEditHtml(source) {
         //normalize new-line to LF only for counting!
@@ -24,10 +30,29 @@ jQuery(function ($) {
             replace(/&amp;/g, '&');
     };
 
+    /* editor */
+    /* - load from somewhere */
+    editor.load = function (readFn) {
+        readFn(function (file) {
+            document.title = file.name + " - VEdit";
+            $('#file-name').text(file.path);
+
+            $("#text-content>div.preview").empty();
+            $('#text-content').removeClass('preview-mode').
+                children('div.edit:first-child').html(toEditHtml(file.content)).focus().
+                end().
+            removeClass('unloaded');
+        });
+    };
+
+
+jQuery(function ($) {
+
+
+    /* - download */
     $('body').delegate('a.save-file-button', 'click', function () {
-        var downloadFileName = encodeURI($('#file-name').text());
         var newContent = fromEditHtml($('#text-content>div.edit').html());
-        this.setAttribute('download', downloadFileName); //HTML5.  OK for Chrome
+        this.setAttribute('download', $('#file-name').text()); //HTML5.  OK for Chrome
         this.setAttribute('href', 'data:application/octet-stream,' + encodeURIComponent(newContent));
         return true;
     }).
@@ -47,36 +72,9 @@ jQuery(function ($) {
         }
     });
 
-    var CHAR_CODE = 'cp932';
 
-    $('html').
-    bind('drop', function (e) {
-        e.preventDefault();
-        if (!e.dataTransfer || !e.dataTransfer.files) {
-            alert('no drop file');
-            return;
-        }
 
-        var file = e.dataTransfer.files[0];
-        $('#file-name').text(file.name);
-
-        if (!window.FileReader) {
-            alert('no file read');
-            return;
-        }
-
-        var fr = new FileReader()
-        fr.onload = function (e) {
-            $("#text-content>div.preview").empty();
-            $('#text-content').removeClass('preview-mode').
-                children('div.edit:first-child').html(toEditHtml(e.target.result)).focus().
-                end().
-            removeClass('unloaded');
-        };
-        fr.readAsText(file, CHAR_CODE);
-    }).
-    bind('dragenter dragover', false);
-
+    /* rotate arrow key direction */
     $('body').delegate('.editable-content', 'keydown', function (e) {
         if (!$('body').is('.vertical')) {
             return;
@@ -227,9 +225,12 @@ jQuery(function ($) {
                 break;
         }
     });
+
 });
 
+} (jQuery));
 </script>
+
 <style type="text/css">
 
 body
@@ -329,5 +330,81 @@ div.content-container.preview-mode>div.preview
             <div class="preview"></div>
         </div>
     </div>
+    <div style="position:fixed;right:10px;top:30px;z-index:100;background-color:#DDD;">
+        <div id="explorer" >
+        </div>
+    </div>
+
+<script type ="text/javascript">
+    
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    var fs = new DropboxStorage();
+
+    function chopFileName(path) {
+        /([^\/]+)\..+/.exec(path);
+        return RegExp.$1 || path;
+    }
+
+
+    var router = (new function (editor) {
+
+        var route = function (url) {
+            if (/#!\/file(.+)/.test(url)) {
+                var path = RegExp.$1;
+                editor.load(function (callback) {
+                    fs.readFile(path, function (data) {
+                        callback({
+                            path: path,
+                            name: chopFileName(path),
+                            content: data
+                        });
+                    });
+                });
+            } else if (/#!\/$/.exec(url)) {
+            }
+        };
+
+        this.linkUrl = function (path) {
+            return "#!/file" + path;
+        };
+
+        this.setup = function () {
+            //once on load
+            $(window).
+                bind('hashchange', function () {
+                    route(window.location);
+                }).
+                trigger('hashchange');
+        };
+
+    } (editor));
+
+    fs.connect(function () {
+
+        router.setup();
+
+        //start from root
+        fs.readDirectory(
+            '/',
+            function (paths) {
+                buffer = [];
+                buffer.push('<ul>');
+                $.each(paths, function () {
+                    var path, name, href, listContent;
+                    path = escapeHtml(this);
+                    name = chopFileName(path);
+                    href = router.linkUrl(path);
+                    listContent = '<a href="' + href + '">' + name + '</a>';
+                    buffer.push('<li>' + listContent + '</li>');
+                });
+                buffer.push('</ul>');
+                $('#explorer').html(buffer.join(''));
+            }
+        );
+    });
+</script>
 </body>
 </html>
