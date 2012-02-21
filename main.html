@@ -377,11 +377,25 @@ div.content-container.preview-mode>div.preview
 <script type ="text/javascript">
     jQuery.fn.extend({
         'includeRuby': function () {
+            /* only for Chrome < 18
             $(this).filter('ruby').
-                find('rb').css('position', 'relative').prepend($('<span>').css('position', 'absolute')).
-                end().
-                find('rt').css({ 'position': 'relative', 'left': '1em' });
-
+            find('rb').css('position', 'relative').prepend($('<span>').css('position', 'absolute')).
+            end().
+            find('rt').css({ 'position': 'relative', 'left': '1em' });
+            */
+            /* for Chrome >= 18
+            * ATTENTION: positioning differs from original when <rt /> is shorter than <rb />.  We specified centering by 50% offset to start.
+            * IMPL NOTE: <rt> is forced to word-wrap by <rb> unless we have no "nobr" tag or "-webkit-logical-width: very large number".
+            * IMPL NOTE: rt would start from middle of rb pose if prepend "inline-block" dummy node(includes empty).
+            */
+            $(this).filter('ruby').
+                find('rt').css('position', 'relative').each(function () {
+                    $(this).html([
+                        '<nobr style="display:inline;position:absolute;;right:-1em;">',
+                             $(this).html(),
+                        '</nobr>'
+                    ].join(''));
+                });
         }
     });
 
