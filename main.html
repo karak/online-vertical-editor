@@ -125,7 +125,7 @@ jQuery(function ($) {
             var html;
             try {
                 html = aozoraToHtml(text);
-                $('#text-content>div.preview').html(html);
+                $('#text-content>div.preview').html(html).find('ruby').includeRuby();
             } catch (e) {
                 $('#text-content>div.preview').text(text);
             }
@@ -373,6 +373,20 @@ div.content-container.preview-mode>div.preview
 }
 
 </style>
+    
+<script type ="text/javascript">
+    jQuery.fn.extend({
+        'includeRuby': function () {
+            $(this).filter('ruby').
+                find('rb').css('position', 'relative').prepend($('<span>').css('position', 'absolute')).
+                end().
+                find('rt').css({ 'position': 'relative', 'left': '1em' });
+
+        }
+    });
+
+</script>
+
 </head>
 <body class="vertical">
     <div class="pad">
